@@ -11,6 +11,8 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from time import sleep
 import statistics
+import numpy as np
+import scipy.stats as stats
 
 #термопара подключена к gpio4
 #экран подключен по i2c gpio2-3
@@ -125,8 +127,10 @@ def display(speed): #рисуем на дисплее
     disp.image(image1)
     disp.display()
 def filtr(speed): #усредняем значение скорости
-    if len(geo_list) >= 10:
-        speeds = statistics.median(geo_list)
+    if len(geo_list) >= 20:
+        z = np.abs(stats.zscore(geo_list)) #какая то хрень с методом z оценки 
+        data_clean = geo_list[(z<3).all(axis=1)]
+        speeds = statistics.median(data_clean)
         geo_list.clear()
         return speeds
     else:

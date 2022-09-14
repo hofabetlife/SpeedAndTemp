@@ -10,6 +10,7 @@ from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
 from time import sleep
+import statistics
 
 #термопара подключена к gpio4
 #экран подключен по i2c gpio2-3
@@ -47,6 +48,7 @@ bottom = height-padding
 x = 0
 font = ImageFont.truetype('/home/pupa/ra.ttf', 26)
 ser = serial.Serial(port, baudrate = 9600, timeout = 2) # создаем объект для работы с последовательным портом
+geo_list = list()
 
 def get_temp(): # функция для считывания значения температуры с датчика
     try:
@@ -122,6 +124,15 @@ def display(speed): #рисуем на дисплее
     # Display image.
     disp.image(image1)
     disp.display()
+def filtr(speed): #усредняем значение скорости
+    if len(geo_list) >= 10:
+        speeds = statistics.median(geo_list)
+        geo_list.clear()
+        return speeds
+    else:
+        geo_list.append(speed)
+        return 0
+    
 def main(): # основной цикл
     display("Load")
     speed_max = 0.0
@@ -133,7 +144,7 @@ def main(): # основной цикл
             data_debila = data
             data_debila = data_debila.decode('utf-8')
             data_debila = data_debila.split(",")
-            if data_debila[0] == '$GPGGA' and data_debila[2] != '': #мы будем извлекать широту и долготу из строки GPGGA в данных NMEA
+            if '$GPGGA' in data_debila[0] and data_debila[2] != '': #мы будем извлекать широту и долготу из строки GPGGA в данных NMEA
                 try:
                     msg = pynmea2.parse(data.decode('utf-8'))
                     pos_lat, pos_long = longi_lati(msg)
@@ -152,10 +163,12 @@ def main(): # основной цикл
                     Time_spl = str(data_debila[9])
                     day_now = Time_spl[0]+Time_spl[1]+"."+Time_spl[2]+Time_spl[3]+"."+Time_spl[4]+Time_spl[5]+","
                     speeds = float(data_debila[7])*1.852    
-                    if speed_max < speeds:
-                        speed_max = speeds #в текущей версии не юзаеться
-                    spd = str(round(speeds, 2)) + 'km\h'
-                    display(spd)
+                    #if speed_max < speeds:
+                    #    speed_max = speeds #в текущей версии не юзаеться
+                    speeds = filtr(speeds)
+                    if speeds > 0:
+                        spd = str(round(speeds, 2)) + 'km\h'
+                        display(spd)
                     t_tue = True
                 except:
                     display("ERROR2")
